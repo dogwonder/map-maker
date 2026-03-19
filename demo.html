@@ -69,6 +69,7 @@
   <label><input type="checkbox" id="opt-interactive"> Interactive</label>
   <button id="go">Update</button>
   <button id="export">Export PNG</button>
+  <button id="undo" disabled>Undo</button>
 </div>
 
 <div class="controls" id="layer-toggles">
@@ -129,6 +130,37 @@
     await createMap();
     buildLayerToggles();
 
+    // Undo history — stores snapshots of all colour values
+    const undoStack = [];
+    const undoBtn = document.getElementById('undo');
+
+    function captureColorState() {
+      const state = {};
+      for (const { picker } of colorPairs) {
+        state[picker] = document.getElementById(picker).value;
+      }
+      return state;
+    }
+
+    function pushUndo() {
+      undoStack.push(captureColorState());
+      undoBtn.disabled = false;
+    }
+
+    function applyUndo() {
+      if (!undoStack.length) return;
+      const state = undoStack.pop();
+      const batch = {};
+      for (const { picker, hex, key } of colorPairs) {
+        const val = state[picker];
+        document.getElementById(picker).value = val;
+        document.getElementById(hex).value = val;
+        batch[key] = val;
+      }
+      instance.setColors(batch);
+      undoBtn.disabled = undoStack.length === 0;
+    }
+
     // Live colour editing — keep picker and hex input in sync
     const colorPairs = [
       { picker: 'c-bg',      hex: 'h-bg',      key: 'background' },
@@ -144,15 +176,20 @@
     for (const { picker, hex, key } of colorPairs) {
       const pickerEl = document.getElementById(picker);
       const hexEl    = document.getElementById(hex);
+      let dragging = false;
 
       pickerEl.addEventListener('input', (e) => {
+        if (!dragging) { pushUndo(); dragging = true; }
         hexEl.value = e.target.value;
         instance.setColors({ [key]: e.target.value });
       });
 
+      pickerEl.addEventListener('change', () => { dragging = false; });
+
       hexEl.addEventListener('change', (e) => {
         const val = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value;
         if (/^#[0-9a-f]{6}$/i.test(val)) {
+          pushUndo();
           pickerEl.value = val;
           hexEl.value = val;
           instance.setColors({ [key]: val });
@@ -163,6 +200,8 @@
     document.getElementById('export').addEventListener('click', () => {
       instance.exportPNG({ filename: 'map.png', scale: 2 });
     });
+
+    undoBtn.addEventListener('click', applyUndo);
 
     // Rebuild map when toggling marker or interactive
     for (const id of ['opt-marker', 'opt-interactive']) {
