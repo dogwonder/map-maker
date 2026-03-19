@@ -36,7 +36,7 @@
         "hillshade-highlight-color": "hsl(0, 0%, 100%)",
         "hillshade-accent-color": "hsl(0, 0%, 50%)",
         "hillshade-illumination-direction": 315,
-        "hillshade-exaggeration": 0.4
+        "hillshade-exaggeration": 0.6
       }
     },
     {
@@ -1187,7 +1187,7 @@
       "type": "symbol",
       "source": "maptiler_planet",
       "source-layer": "transportation_name",
-      "minzoom": 15,
+      "minzoom": 13,
       "layout": {
         "symbol-placement": "line",
         "symbol-spacing": {
@@ -1211,6 +1211,10 @@
           [
             "get",
             "name"
+          ],
+          [
+            "get",
+            "ref"
           ]
         ],
         "text-font": [
@@ -1241,6 +1245,7 @@
       "filter": [
         "in",
         "class",
+        "motorway",
         "primary",
         "secondary",
         "tertiary",

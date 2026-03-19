@@ -103,7 +103,7 @@ const mapmaker = (() => {
     'Buildings':  { layers: ['Building', 'Building pattern'],                  on: false },
     'Borders':    { layers: ['Country border', 'Disputed border', 'Other border'], on: false },
     'Labels':     { layers: ['Place labels', 'Village labels', 'Town labels', 'City labels', 'State labels', 'Country labels', 'Continent labels'], on: true },
-    'Road labels':  { layers: ['Road labels'],                                 on: false },
+    'Road labels':  { layers: ['Road labels'],                                 on: true },
     'Park labels':  { layers: ['Park labels'],                                 on: false },
     'Water labels': { layers: ['River labels', 'Lakeline labels', 'Sea labels', 'Lake labels', 'Ocean labels'], on: false },
   };
