@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapMaker Demo</title>
+
+  <!-- Dependencies -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
+
+  <!-- MapMaker -->
+  <script src="mapmaker.js?v=6"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      background: #f5f5f5;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: .5rem; }
+
+    #map {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,.12);
+    }
+
+    /* Hide default leaflet pin styles */
+    .mapmaker-pin { background: none !important; border: none !important; }
+
+    .controls {
+      display: flex; flex-wrap: wrap; gap: .75rem;
+      margin-top: 1rem; padding: 1rem;
+      background: #fff; border-radius: 8px;
+    }
+    .controls label { display: flex; align-items: center; gap: .35rem; font-size: .85rem; }
+    .controls input[type="color"] { width: 32px; height: 24px; border: 1px solid #ccc; padding: 0; cursor: pointer; }
+    .controls input[type="text"].hex { width: 72px; padding: .15rem .35rem; font-family: monospace; font-size: .8rem; }
+    .controls input[type="number"] { width: 80px; padding: .15rem .35rem; }
+    .controls button { padding: .35rem .75rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h1>MapMaker Demo</h1>
+<div id="map"></div>
+
+<div class="controls">
+  <label>Background <input type="color" id="c-bg" value="#d4dbd0"><input type="text" class="hex" id="h-bg" value="#d4dbd0"></label>
+  <label>Urban <input type="color" id="c-urban" value="#dad5cf"><input type="text" class="hex" id="h-urban" value="#dad5cf"></label>
+  <label>Countryside <input type="color" id="c-country" value="#d4dbd0"><input type="text" class="hex" id="h-country" value="#d4dbd0"></label>
+  <label>Parks <input type="color" id="c-parks" value="#b4d4ae"><input type="text" class="hex" id="h-parks" value="#b4d4ae"></label>
+  <label>Woodland <input type="color" id="c-wood" value="#a8c8a0"><input type="text" class="hex" id="h-wood" value="#a8c8a0"></label>
+  <label>Water <input type="color" id="c-water" value="#a8b8c7"><input type="text" class="hex" id="h-water" value="#a8b8c7"></label>
+  <label>Road <input type="color" id="c-road" value="#ffffff"><input type="text" class="hex" id="h-road" value="#ffffff"></label>
+  <label>Railway <input type="color" id="c-rail" value="#c3c5c4"><input type="text" class="hex" id="h-rail" value="#c3c5c4"></label>
+  <label>Lat <input type="number" id="lat" value="50.88" step="0.001"></label>
+  <label>Lng <input type="number" id="lng" value="-0.30" step="0.001"></label>
+  <label>Zoom <input type="number" id="zoom" value="11" min="1" max="20"></label>
+  <label><input type="checkbox" id="opt-marker"> Marker</label>
+  <label><input type="checkbox" id="opt-interactive"> Interactive</label>
+  <button id="go">Update</button>
+  <button id="export">Export PNG</button>
+</div>
+
+<div class="controls" id="layer-toggles">
+  <strong style="font-size:.85rem; width:100%">Layers</strong>
+</div>
+
+<script>
+  let instance = null;
+
+  function buildLayerToggles() {
+    const container = document.getElementById('layer-toggles');
+    container.querySelectorAll('label').forEach((el) => el.remove());
+
+    for (const { name, on } of instance.getLayers()) {
+      const label = document.createElement('label');
+      const cb    = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.checked = on;
+      cb.addEventListener('change', () => instance.toggleLayer(name, cb.checked));
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + name));
+      container.appendChild(label);
+    }
+  }
+
+  async function createMap() {
+    if (instance) instance.destroy();
+
+    const lat         = parseFloat(document.getElementById('lat').value);
+    const lng         = parseFloat(document.getElementById('lng').value);
+    const zoom        = parseInt(document.getElementById('zoom').value, 10);
+    const showMarker  = document.getElementById('opt-marker').checked;
+    const interactive = document.getElementById('opt-interactive').checked;
+
+    instance = await mapmaker.create('#map', {
+      lat,
+      lng,
+      zoom,
+      style: 'mapmaker.json',
+      interactive,
+      marker: showMarker ? {} : false,
+      onClick: showMarker
+        ? ({ lat, lng }) => window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
+        : null,
+    });
+
+    // Sync lat/lng/zoom inputs when the map is moved interactively
+    instance.leaflet.on('moveend', () => {
+      const c = instance.leaflet.getCenter();
+      const z = instance.leaflet.getZoom();
+      document.getElementById('lat').value  = c.lat.toFixed(4);
+      document.getElementById('lng').value  = c.lng.toFixed(4);
+      document.getElementById('zoom').value = z;
+    });
+  }
+
+  (async () => {
+    await createMap();
+    buildLayerToggles();
+
+    // Live colour editing — keep picker and hex input in sync
+    const colorPairs = [
+      { picker: 'c-bg',      hex: 'h-bg',      key: 'background' },
+      { picker: 'c-urban',   hex: 'h-urban',   key: 'urban' },
+      { picker: 'c-country', hex: 'h-country', key: 'countryside' },
+      { picker: 'c-parks',   hex: 'h-parks',   key: 'parks' },
+      { picker: 'c-wood',    hex: 'h-wood',    key: 'woodland' },
+      { picker: 'c-water',   hex: 'h-water',   key: 'water' },
+      { picker: 'c-road',    hex: 'h-road',    key: 'road' },
+      { picker: 'c-rail',    hex: 'h-rail',    key: 'railway' },
+    ];
+
+    for (const { picker, hex, key } of colorPairs) {
+      const pickerEl = document.getElementById(picker);
+      const hexEl    = document.getElementById(hex);
+
+      pickerEl.addEventListener('input', (e) => {
+        hexEl.value = e.target.value;
+        instance.setColors({ [key]: e.target.value });
+      });
+
+      hexEl.addEventListener('change', (e) => {
+        const val = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value;
+        if (/^#[0-9a-f]{6}$/i.test(val)) {
+          pickerEl.value = val;
+          hexEl.value = val;
+          instance.setColors({ [key]: val });
+        }
+      });
+    }
+
+    document.getElementById('export').addEventListener('click', () => {
+      instance.exportPNG({ filename: 'map.png', scale: 2 });
+    });
+
+    // Rebuild map when toggling marker or interactive
+    for (const id of ['opt-marker', 'opt-interactive']) {
+      document.getElementById(id).addEventListener('change', async () => {
+        await createMap();
+        buildLayerToggles();
+      });
+    }
+
+    document.getElementById('go').addEventListener('click', () => {
+      const lat  = parseFloat(document.getElementById('lat').value);
+      const lng  = parseFloat(document.getElementById('lng').value);
+      const zoom = parseInt(document.getElementById('zoom').value, 10);
+      instance.setView(lat, lng, zoom);
+    });
+  })();
+</script>
+
+</body>
+</html>
