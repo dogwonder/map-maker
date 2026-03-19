@@ -130,21 +130,38 @@
     await createMap();
     buildLayerToggles();
 
-    // Undo history — stores snapshots of all colour values
+    // Live colour editing — keep picker and hex input in sync
+    const colorPairs = [
+      { picker: 'c-bg',      hex: 'h-bg',      key: 'background' },
+      { picker: 'c-urban',   hex: 'h-urban',   key: 'urban' },
+      { picker: 'c-country', hex: 'h-country', key: 'countryside' },
+      { picker: 'c-parks',   hex: 'h-parks',   key: 'parks' },
+      { picker: 'c-wood',    hex: 'h-wood',    key: 'woodland' },
+      { picker: 'c-water',   hex: 'h-water',   key: 'water' },
+      { picker: 'c-road',    hex: 'h-road',    key: 'road' },
+      { picker: 'c-rail',    hex: 'h-rail',    key: 'railway' },
+    ];
+
+    // Undo history — snapshot tracks picker values *before* the change
     const undoStack = [];
     const undoBtn = document.getElementById('undo');
 
-    function captureColorState() {
-      const state = {};
-      for (const { picker } of colorPairs) {
-        state[picker] = document.getElementById(picker).value;
-      }
-      return state;
+    // Seed with current DOM values so the first undo has something to restore to
+    let lastColorState = {};
+    for (const { picker } of colorPairs) {
+      lastColorState[picker] = document.getElementById(picker).value;
     }
 
     function pushUndo() {
-      undoStack.push(captureColorState());
+      undoStack.push(lastColorState);
       undoBtn.disabled = false;
+    }
+
+    function snapshotColors() {
+      lastColorState = {};
+      for (const { picker } of colorPairs) {
+        lastColorState[picker] = document.getElementById(picker).value;
+      }
     }
 
     function applyUndo() {
@@ -158,20 +175,10 @@
         batch[key] = val;
       }
       instance.setColors(batch);
+      // Update lastColorState to reflect what we just restored
+      lastColorState = { ...state };
       undoBtn.disabled = undoStack.length === 0;
     }
-
-    // Live colour editing — keep picker and hex input in sync
-    const colorPairs = [
-      { picker: 'c-bg',      hex: 'h-bg',      key: 'background' },
-      { picker: 'c-urban',   hex: 'h-urban',   key: 'urban' },
-      { picker: 'c-country', hex: 'h-country', key: 'countryside' },
-      { picker: 'c-parks',   hex: 'h-parks',   key: 'parks' },
-      { picker: 'c-wood',    hex: 'h-wood',    key: 'woodland' },
-      { picker: 'c-water',   hex: 'h-water',   key: 'water' },
-      { picker: 'c-road',    hex: 'h-road',    key: 'road' },
-      { picker: 'c-rail',    hex: 'h-rail',    key: 'railway' },
-    ];
 
     for (const { picker, hex, key } of colorPairs) {
       const pickerEl = document.getElementById(picker);
@@ -184,7 +191,7 @@
         instance.setColors({ [key]: e.target.value });
       });
 
-      pickerEl.addEventListener('change', () => { dragging = false; });
+      pickerEl.addEventListener('change', () => { dragging = false; snapshotColors(); });
 
       hexEl.addEventListener('change', (e) => {
         const val = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value;
@@ -193,6 +200,7 @@
           pickerEl.value = val;
           hexEl.value = val;
           instance.setColors({ [key]: val });
+          snapshotColors();
         }
       });
     }
